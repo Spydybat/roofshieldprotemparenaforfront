@@ -5,6 +5,29 @@
 
 ---
 
+---
+
+## 0. Addendum — why the deployment cannot run in this sandbox
+
+Verified this pass, with the CLI's own output:
+
+| Probe | Result |
+|---|---|
+| `whop auth status` | `loggedIn: false`, `hasSecret: false` |
+| `WHOP_API_KEY` / `WHOP_ACCOUNT_ID` in env | absent |
+| `.env`, secret mounts (`/run/secrets`, etc.) | none |
+| `curl https://api.whop.com` | **HTTP 000** (no route) |
+| `curl https://whop.com`, `whop.site`, `cdn.whop.com` | **HTTP 000** |
+| `curl https://github.com`, `registry.npmjs.org` | **HTTP 200** (control) |
+| `npx whop apps get app_S6fj7hfqepepH7` with a dummy key | `{"code":"UNKNOWN","message":"fetch failed"}` |
+
+So deployment is blocked twice over: no credential **and** no network egress to
+Whop. Neither is a code defect. Both are resolved by running the prepared
+one-command deploy script (`scripts/deploy-and-verify.mjs`, see `DEPLOY.md`) on a
+machine with internet access — it performs auth verification, plan-id
+verification against the real account, secret sync, deploy, `hosted_url`
+retrieval and live checks, and refuses to invent any of it.
+
 ## 1. Frontend → backend wiring (every call site)
 
 | UI control | Calls | Endpoint exists |
