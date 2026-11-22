@@ -1,150 +1,154 @@
-# ROOFSHIELD PRO — Bounty Status Report
+# ROOFSHIELD PRO — Functional Status Report
 
 **Date:** 2026-11-22
 **Branch:** `arena/9ede27dd-roofshieldprotemparenaforfront`
-**Whop App:** `app_S6fj7hfqepepH7`
-**Project:** `roofshield-pro-frontend-only/whop-vite/`
+**Whop App:** `app_S6fj7hfqepepH7` · **Project:** `roofshield-pro-frontend-only/whop-vite/`
 
 ---
 
-## 1. What the workspace actually contained
+## 1. What now exists
 
-The inherited brief described a completed 7-stage project. The checkout did **not** match it.
-Verified by inspection immediately after recovery:
+The storefront (preserved, not rebuilt) plus a real server backend:
 
-| Briefed item | Reality in this checkout |
-|---|---|
-| ZIP file with original frontend | **Not present.** No `.zip` anywhere in the repo. |
-| Original Next.js application | **Not present.** |
-| Branch `whop-vite-migration` | **Does not exist.** Only `main` + this branch. |
-| Last good commit `cdb2fff` | **Does not exist.** History is a single commit `939b200 "Add files via upload"`. |
-| Vite project `whop-vite/` | Present — but *frontend only* (folder literally named `roofshield-pro-frontend-only`). |
-| Nine migrated API endpoints | **Zero exist.** Frontend calls 4 that are unimplemented. |
-| `whop.app.json`, `vite.config.ts`, env | **All absent.** No `.env` file, no variables. |
-| Screenshots as visual reference | **Never attached** to this conversation. |
+| Method | Route | Auth | State |
+|---|---|---|---|
+| POST | `/api/leads` | public (rate-limited) | **Implemented + tested** |
+| POST | `/api/track` | public (rate-limited) | **Implemented + tested** |
+| POST | `/api/checkout-sessions` | public | **Implemented + tested** (Whop call BLOCKED) |
+| POST | `/api/deposit/complete` | public + consent gate | **Implemented + tested** (Whop call BLOCKED) |
+| POST | `/api/invoices/final` | admin token | **Implemented + tested** (Whop call BLOCKED) |
+| POST | `/api/webhooks/whop` | signature | **Implemented + tested** |
+| GET / PATCH | `/api/admin/leads` | admin token | **Implemented + tested** |
+| GET | `/api/admin/stats` | admin token | **Implemented + tested** |
 
-The UI itself is genuinely complete and high quality (40 files, 2,524 lines of TSX/CSS, 10 brand images,
-exact brand palette, all required sections). **No frontend was recreated** — the existing one was preserved.
+**Storage** (`src/server/store.ts`): Postgres via `pg` when `DATABASE_URL` is set
+(tables auto-created, idempotent), otherwise a JSON file store under `DATA_DIR`
+for local development only — documented as non-durable.
 
-## 2. What was actually fixed (real, verified work)
+**Whop SDK** (`src/server/whop.ts`): lazy `@whop/sdk` client using the real
+`{ token }` auth option, imported server-side only.
 
-1. **Restored `vite.config.ts`** — the single reason the production build could not run. Wires
-   `@tailwindcss/vite` + `tanstackStart()` + **`whop()` from `@whop/cli/vite`** (mandatory; `whop apps deploy`
-   fails `NO_BUILD_ARCHIVE` without it).
-2. **Fixed the Whop packer failure.** `@whop/cli/vite` hard-requires the SSR entry to be
-   `dist/server/index.js`; TanStack Start emitted `dist/server/server.js`, aborting the build with
-   *"server build in dist/server has no index.js entry module"*. Pinned via SSR
-   `rollupOptions.output.entryFileNames`, preserving the correct `default { fetch }` export shape.
-3. **Fixed 2 genuine type errors** — `Footer.tsx` linked to nonexistent routes `/status` and
-   `/checkout/test` (dead diagnostic links; would 404 in production). Removed; design untouched.
-4. **Allowed proxied preview hosts** in the dev server so the site is viewable.
-5. Added `.gitignore`, committed lockfile + generated route tree.
+## 2. Tests actually run (curl against the running server)
 
-### Verified build output
-
-```
-dist/client/                       ✔ static assets + 10 images
-dist/server/index.js               ✔ SSR entry (default export { fetch })
-dist/whop-build.zip                ✔ 19 files, manifest entry: "index.js"
-   server: 6 files · client: 13 files
-```
-
-`npx tsc --noEmit` → **PASS** (0 errors). `npx vite build` → **PASS**.
-Secret scan of `dist/client` → **no secrets present**.
-
-## 3. THE DEPLOYMENT BLOCKER (one root cause)
-
-```console
-$ npx whop apps deploy --app app_S6fj7hfqepepH7
-code: NOT_AUTHENTICATED
-message: Not logged in. Set WHOP_API_KEY or run `whop login` first.
-```
-
-The Whop CLI (v0.34.1, installed) has **no credentials in this environment**:
-
-```
-$ npx whop auth status
-loggedIn: false   profile: null   hasSecret: false
-```
-
-`WHOP_API_KEY` and every other variable below are **unset** — there is no `.env`, and the Arena
-project environment holds no Whop secret. This contradicts §4 of the brief ("API key already configured
-in the Arena AI project environment"). **Nothing was revoked, regenerated, overwritten, or printed.**
-
-Per Whop's own docs (`@whop/cli` → `references/websites.md`): *"Link with `--app`; **never write
-`whop.app.json` by hand**."* So one was deliberately **not** created.
-
-## 4. Environment variables
-
-Status is `PASS` / `FAIL` / `BLOCKED` only.
-
-| Variable | Status | Note |
+| Test | Expected | Result |
 |---|---|---|
-| `WHOP_API_KEY` | **BLOCKED** | Not present in environment; blocks deploy + all API work |
-| `WHOP_ACCOUNT_ID` | **BLOCKED** | Not present |
-| `WHOP_PLAN_ID_INSPECTION` | **BLOCKED** | Not present (no plan ID is hardcoded anywhere — verified) |
-| `WHOP_PLAN_ID_DEPOSIT` | **BLOCKED** | Not present |
-| `WHOP_PLAN_ID_GUTTER` | **BLOCKED** | Not present |
-| `ADMIN_TOKEN` | **BLOCKED** | Not present |
-| `NEXT_PUBLIC_WHOP_ENV` | **BLOCKED** | Not present; Next.js-era name — unused by the Vite app |
-| `NEXT_PUBLIC_SITE_URL` | **BLOCKED** | Not present; Next.js-era name — unused by the Vite app |
-| `DATABASE_URL` | **BLOCKED** | Not present; no DB code exists. Not invented. |
-| `WHOP_WEBHOOK_SECRET` | **BLOCKED** | Not present; no webhook code exists. Not invented. |
+| Valid lead | 201, lead stored | **PASS** — `leadId` returned, row present in store |
+| Same idempotency key resent | 200 `duplicate:true`, no 2nd row | **PASS** — same `leadId`, count stayed 1 |
+| Invalid `serviceType` | 422 with field error | **PASS** |
+| Empty body | 422 with all field errors | **PASS** |
+| Admin, no token | 401 | **PASS** |
+| Admin, wrong token | 401 | **PASS** |
+| Admin, correct token | 200 + leads | **PASS** |
+| Admin with `ADMIN_TOKEN` unset | 503, never open | **PASS** |
+| PATCH lead status → `contacted` | 200 | **PASS** |
+| Track all three events | 202 each | **PASS** — 3 events recorded |
+| Admin stats filtered by event | filtered list | **PASS** |
+| Invalid plan name | 400 | **PASS** |
+| Checkout with no env | 503 + missing var names | **PASS** |
+| Deposit without consent | 400 `CONSENT_REQUIRED`, nothing charged | **PASS** |
+| Deposit with consent, no key | 503 | **PASS** |
+| Invoice with no balance plan | 503 + explanation | **PASS** |
+| Webhook, no secret | 503 | **PASS** |
+| Webhook, **valid signature** | 200 received | **PASS** |
+| Webhook, **replayed delivery id** | 200 `duplicate:true`, not reprocessed | **PASS** |
+| Webhook, tampered body | 400 | **PASS** |
+| Webhook, forged signature | 400 | **PASS** |
+| Webhook, missing headers | 400 | **PASS** |
+| `tsc --noEmit` | clean | **PASS** |
+| `vite build` | `dist/client` + `dist/server/index.js` + archive | **PASS** |
+| Secrets in `dist/client` | none | **PASS** — scan clean |
 
-## 5. Bounty checklist
+Webhook signatures were produced with `standardwebhooks` exactly as Whop signs
+(HMAC over the *literal* secret bytes — `unwrapWebhook` base64-encodes the key to
+cancel the library's own decode). My first test signed the wrong way and was
+correctly rejected; the handler was right, the test was wrong.
+
+## 3. Corrections to the brief, verified in code
+
+1. **There is no Whop Leads API.** `@whop/sdk` 2.8.1 has no `leads` resource (no
+   such client, and no mention in the Whop CLI docs shipped in the package).
+   `/api/leads` therefore stores the lead in the application database and returns
+   `whopSynced: false`. It does not claim a Whop-side object was created.
+2. **The 4 endpoints the frontend called were never implemented** — it is
+   labelled `roofshield-pro-frontend-only`. They now are.
+3. **Whop charges are variant-priced.** There is no arbitrary-amount charge in
+   the SDK, so the final-balance invoice needs its own variant
+   (`WHOP_PLAN_ID_BALANCE`). Reported as missing rather than guessing a plan.
+4. **Payment success is `status: "paid"`**, not `"succeeded"`. The deposit code
+   treats only `paid` as success; the UI's `succeeded` flag is computed from it.
+5. **`whop.app.json` must not be hand-written** (Whop's own docs). Link with
+   `--app` instead.
+
+## 4. Remaining blockers (all credential/permission, none code)
+
+| # | Blocker | Effect |
+|---|---|---|
+| 1 | `WHOP_API_KEY` not in this environment (`whop auth status` → `loggedIn: false`) | No deploy; no checkout session, deposit charge, or invoice can reach Whop |
+| 2 | `WHOP_ACCOUNT_ID` not set | Same |
+| 3 | `WHOP_PLAN_ID_*` not set | Checkout correctly refuses to invent plan ids |
+| 4 | `DATABASE_URL` not set | Leads/events persist to a non-durable file store — fine for dev, wrong for production |
+| 5 | `WHOP_WEBHOOK_SECRET` not set in production | Verified working locally with a generated secret |
+| 6 | `WHOP_PLAN_ID_BALANCE` | Needed for `POST /api/invoices/final` |
+| 7 | `ADMIN_TOKEN` | Verified working locally with a generated token |
+
+## 5. Checklist
+
+`PASS` = actually executed. `FAIL` = executed and failed. `BLOCKED` = no access.
 
 | # | Requirement | Status | Evidence |
 |---|---|---|---|
-| 1 | Existing project recovered | **PASS** | 40 files inspected, preserved, committed |
-| 2 | Original Next.js project preserved | **BLOCKED** | Never existed in this checkout |
-| 3 | Existing Vite migration preserved | **PASS** | All components/styles/assets untouched |
-| 4 | Correct Whop App ID | **PASS** | `app_S6fj7hfqepepH7` used in deploy command |
-| 5 | Whop CLI configuration | **FAIL** | CLI present, **not authenticated**; no app link |
-| 6 | Production build | **PASS** | `vite build` exit 0 |
-| 7 | SSR build output | **PASS** | `dist/client` + `dist/server/index.js` verified |
-| 8 | Three verified Whop plans | **BLOCKED** | Plan IDs not configured; no env values to verify |
-| 9 | PaymentElement | **PASS** (code) | `CheckoutElement` imported/rendered in CheckoutProvider |
-| 10 | ExpressCheckoutElement | **PASS** (code) | Imported + rendered under Express tab |
-| 11 | BrandingElement | **PASS** (code) | Rendered in `Payments` wrapper |
-| 12 | Production checkout session creation | **BLOCKED** | Needs `/api/checkout-sessions` → **missing file** + `WHOP_API_KEY` |
-| 13 | Deposit setup-intent implementation | **BLOCKED** | Frontend expects setup flow; server handler absent |
-| 14 | Saved payment method authorization | **BLOCKED** | Consent UI exists; no server implementation |
-| 15 | Final balance invoice implementation | **BLOCKED** | No invoice code exists |
-| 16 | Whop Leads API | **BLOCKED** | `/api/leads` is called but **not implemented** |
-| 17 | `estimate_requested` tracking | **PASS** (code) | Fires in `EstimateForm` only after `res.ok` + lead id |
-| 18 | `service_viewed` tracking | **PASS** (code) | Fires in `Services.tsx` per service |
-| 19 | `deposit_started` tracking | **PASS** (code) | Fires in `CheckoutProvider` on deposit open |
-| 20 | Database configuration | **BLOCKED** | No `DATABASE_URL`, no code, no schema |
-| 21 | Webhook security | **BLOCKED** | No webhook code / secret |
-| 22 | Duplicate payment protection | **BLOCKED** | No server-side payment code |
-| 23 | Desktop responsiveness | **PASS** | SSR HTML 200, responsive Tailwind breakpoints, no fixed widths |
-| 24 | Mobile responsiveness | **PASS** | `width=device-width` viewport, `svh` hero, mobile nav |
-| 25 | GitHub source code | **PASS** | Pushed `ddee7cc` to the session branch |
-| 26 | Actual Whop production deployment | **FAIL** | `NOT_AUTHENTICATED` — cannot deploy |
-| 27 | Actual live whop.app URL | **BLOCKED** | No deploy ⇒ **no URL invented** |
+| 1 | Project recovered / preserved | **PASS** | Original components + design untouched |
+| 2 | Production build | **PASS** | `vite build` exit 0 |
+| 3 | SSR output `dist/client` + `dist/server/index.js` | **PASS** | Archive manifest entry `index.js` |
+| 4 | TypeScript | **PASS** | `tsc --noEmit` clean |
+| 5 | Estimate form fields (6) + exactly 3 services | **PASS** | Rendered HTML + code |
+| 6 | Server-side lead validation | **PASS** | 422 cases |
+| 7 | Lead persisted + retrievable | **PASS** | Admin list returns it |
+| 8 | Duplicate submission prevention | **PASS** | Unique idempotency key |
+| 9 | Success only after real persistence | **PASS** | 2xx returned post-commit |
+| 10 | Whop Leads API usage | **FAIL** | No such API exists in SDK 2.8.1 |
+| 11 | `estimate_requested` / `service_viewed` / `deposit_started` | **PASS** (code + server log) | 3 events stored; dashboard unverified (**BLOCKED**) |
+| 12 | CheckoutElement / ExpressCheckoutElement / BrandingElement | **PASS** (mounted in code) | Live render **BLOCKED** — needs plan ids |
+| 13 | Production checkout session creation | **BLOCKED** | 503 until `WHOP_API_KEY` + plan ids |
+| 14 | Deposit setup-intent + consent flow | **PASS** (consent gate + refusal) / **BLOCKED** (actual Whop setup) | 400 without consent; 503 without key |
+| 15 | Saved payment method authorization | **BLOCKED** | Requires Whop credentials |
+| 16 | Final balance invoice implementation | **PASS** (code) / **BLOCKED** (execution) | Needs `WHOP_PLAN_ID_BALANCE` + key |
+| 17 | Webhook signature verification | **PASS** | 200 valid; 400 tampered/forged/missing |
+| 18 | Duplicate webhook protection | **PASS** | Replay → `duplicate:true` |
+| 19 | Duplicate payment protection | **PASS** (logic) | UNIQUE `setup_intent_id`/`payment_id` + reservation before charge; real charge **BLOCKED** |
+| 20 | Admin auth 401/401/200 | **PASS** | All three branches |
+| 21 | Admin unconfigured ≠ open | **PASS** | 503 |
+| 22 | Whop keys stay server-side | **PASS** | Client bundle scan clean |
+| 23 | Database configuration | **BLOCKED** | `DATABASE_URL` absent; Postgres path written but never executed |
+| 24 | Desktop + mobile layout | **PASS** | SSR 200, responsive breakpoints, `svh` hero |
+| 25 | GitHub source | **PASS** | Committed + pushed |
+| 26 | Whop production deployment | **FAIL** | `NOT_AUTHENTICATED` |
+| 27 | Live whop.app URL | **BLOCKED** | No deploy ⇒ not invented |
 
-Tracking events are **code-verified only** — not independently confirmed in the Whop dashboard,
-which requires authentication. No lead, invoice, setup intent, or payment was created or charged.
-
-## 6. The ONE next action
-
-Authenticate the Whop CLI **in this project's environment** using the existing production key:
+## 6. Next actions
 
 ```bash
-export WHOP_API_KEY=<your existing company API key>   # do not create a new one
-npx whop auth status                                  # expect: loggedIn: true
+# 1. Authenticate with the EXISTING key (do not create a new one)
+export WHOP_API_KEY=...          # + WHOP_ACCOUNT_ID
+npx whop auth status             # expect loggedIn: true
+
+# 2. Plan ids (verify each is a plan_ id, not a prod_ id)
+npx whop apps secrets set --secret WHOP_PLAN_ID_INSPECTION=plan_...
+npx whop apps secrets set --secret WHOP_PLAN_ID_DEPOSIT=plan_...
+npx whop apps secrets set --secret WHOP_PLAN_ID_GUTTER=plan_...
+npx whop apps secrets set --secret WHOP_PLAN_ID_BALANCE=plan_...   # final balance
+
+# 3. Durability + security
+npx whop apps secrets set --secret DATABASE_URL=...
+npx whop apps secrets set --secret ADMIN_TOKEN=...
+npx whop apps secrets set --secret WHOP_WEBHOOK_SECRET=...
+
+# 4. Deploy and register the webhook endpoint
 npx whop apps deploy --app app_S6fj7hfqepepH7
+#    → webhook URL: https://<domain>/api/webhooks/whop
 ```
 
-Then the remaining blockers in dependency order:
-
-1. **`/api/checkout-sessions`, `/api/leads`, `/api/track`, `/api/deposit/complete`** — the 4 endpoints the
-   UI calls. Until they exist, the estimate form returns a network error and **no checkout can open**.
-2. **Plan IDs** as secrets: `whop apps secrets set --secret WHOP_PLAN_ID_INSPECTION=plan_1NofJFeDT8Gk`
-   (plus deposit/gutter). Note: `plan_1NofJFeDJT8Gk` in the brief — verify the exact string in your
-   dashboard before setting; never substitute product IDs for plan IDs.
-3. **`DATABASE_URL`** (existing Supabase) for lead/invoice persistence, or accept stateless endpoints.
-4. Webhook + signature verification, then `estimate_requested` dashboard confirmation.
-
-No `whop.app.json` was hand-written, no app/product/plan/key created, no Git history rewritten,
-no secret printed, and no deployment or payment success claimed.
+Then the only unexercised paths are the real Whop calls (checkout, deposit
+charge, invoice) — each requires a live credential, and I will not simulate them
+or mark them PASS. No payment, invoice, setup intent was created; no secret was
+printed; no plan or product was created.
