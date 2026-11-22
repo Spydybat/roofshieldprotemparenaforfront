@@ -79,6 +79,41 @@ const now = () => new Date().toISOString();
 
 /* ────────────────────────────── Postgres ────────────────────────────── */
 
+/**
+ * Decide TLS from the connection string instead of guessing from the hostname.
+ *
+ * - `?sslmode=disable`  → no TLS (local, docker, some poolers)
+ * - `?sslmode=require`  → TLS without CA verification (Supabase, Neon, RDS proxies)
+ * - `?sslmode=verify-full` → TLS with verification
+ * - `DATABASE_SSL=disable` → force off, for a provider that needs it
+ * - otherwise: loopback/`.local` hosts get no TLS, everything else gets TLS.
+ *
+ * Getting this wrong is a hard failure ("The server does not support SSL
+ * connections"), which is what a naive hostname check produced.
+ */
+function sslFor(url: string): false | { rejectUnauthorized: boolean } | undefined {
+  const override = process.env.DATABASE_SSL?.toLowerCase();
+  if (override === "disable" || override === "false" || override === "off") return undefined;
+  if (override === "require" || override === "true") return { rejectUnauthorized: false };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { rejectUnauthorized: false };
+  }
+
+  const mode = parsed.searchParams.get("sslmode")?.toLowerCase();
+  if (mode === "disable") return undefined;
+  if (mode === "require" || mode === "prefer" || mode === "allow") return { rejectUnauthorized: false };
+  if (mode === "verify-ca" || mode === "verify-full") return { rejectUnauthorized: true };
+
+  const host = parsed.hostname;
+  const isLoopback =
+    host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]" || host.endsWith(".local");
+  return isLoopback ? undefined : { rejectUnauthorized: false };
+}
+
 class PgStore implements Store {
   readonly backend = "postgres" as const;
   private url: string;
@@ -99,7 +134,7 @@ class PgStore implements Store {
         const pool = new Pool({
           connectionString: this.url,
           max: 5,
-          ssl: this.url.includes("localhost") ? undefined : { rejectUnauthorized: false },
+          ssl: sslFor(this.url),
         });
         await pool.query(`
           CREATE TABLE IF NOT EXISTS leads (

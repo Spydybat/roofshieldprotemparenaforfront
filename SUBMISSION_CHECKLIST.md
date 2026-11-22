@@ -47,16 +47,38 @@ Regression suite after all edits: **13/14 pass, 1 intentional** (the webhook
 "unsigned" case returns **503** when the server has no webhook secret, and **400**
 when it does — both verified; my first assertion assumed the wrong env).
 
-## 3. Database persistence + migrations
+## 3. Database persistence + migrations — verified against real PostgreSQL
 
-- **File backend (dev):** lead persisted, survived a **server restart** with its
-  `contacted` status intact (`store.json`, gitignored).
-- **Postgres backend:** migration DDL was executed on a real Postgres engine
-  (PGlite/WASM) — all four tables created, and all three duplicate guards
-  enforced with Postgres error `23505`:
-  `leads.idempotency_key`, `orders.setup_intent_id`, `webhook_events.id`.
-- **Not executed:** the `pg` driver connection path (no Postgres server or
-  Docker in this sandbox). Code path is written and typechecked, not run.
+This pass removed the last unknown. A real **PostgreSQL 18.7** server was started
+locally (binaries shipped in the `@embedded-postgres/linux-x64` npm package — no
+external download) and the **production bundle** (`dist/server/index.js`) was
+driven against it:
+
+| Check | Result |
+|---|---|
+| Auto-migrations on first request | **PASS** — all four tables created |
+| `POST /api/leads` | **PASS** — 201, row in Postgres |
+| Duplicate idempotency key | **PASS** — 200 `duplicate:true`, same `leadId`, still 1 row |
+| `POST /api/track` | **PASS** — 202, event stored |
+| `GET /api/admin/stats` | **PASS** — `backend=postgres`, counts correct |
+| `GET /api/admin/leads` | **PASS** — returns the row |
+| `PATCH` lead status → `scheduled` | **PASS** — 200, persisted |
+| **Durability across a fresh process** | **PASS** — new process reads the same lead and status |
+| Duplicate guards (`23505`) | **PASS** — `idempotency_key`, `setup_intent_id`, `webhook_events.id` |
+
+**Bug found and fixed by this test:** TLS was being force-enabled for any host
+other than the literal string `localhost`, so a Postgres URL on `127.0.0.1` — or
+any provider using `?sslmode=disable` — failed with *"The server does not support
+SSL connections"*. `sslFor()` now honours `sslmode` (`disable` / `require` /
+`verify-ca` / `verify-full`), an explicit `DATABASE_SSL` override, and treats all
+loopback hosts as no-TLS. Supabase (`sslmode=require`) is the default for any
+non-loopback host.
+
+Also verified: the **production artifact itself boots** — `dist/server/index.js`
+exports `default.fetch`, serves SSR for `/` (hero headline present) and `/admin`,
+routes every API path, and returns 401 for unauthenticated admin calls. In the
+built bundle `process.env.NODE_ENV` is baked to `production`, and the storage
+guard correctly refuses to run without `DATABASE_URL`.
 
 ### Runtime caveat you must know before submission
 
@@ -241,7 +263,7 @@ npx whop variants get plan_ca358aTAVQPVM   # $299 Gutter Cleaning
 | 4 | Server-side validation | **PASS** | 422 matrix |
 | 5 | Lead persisted + retrievable | **PASS** | survived restart |
 | 6 | Duplicate submission prevention | **PASS** | unique key, verified |
-| 7 | Migrations valid | **PASS** (engine) / **BLOCKED** (pg driver) | PGlite run; no server here |
+| 7 | Migrations valid | **PASS** | executed on PostgreSQL 18.7 via the production bundle |
 | 8 | Admin auth 401/401/200 | **PASS** | executed |
 | 9 | Dev token unusable in production | **PASS** | 503 in prod mode |
 | 10 | Webhook signature verification | **PASS** | signed 200; tampered/forged 400 |
@@ -254,7 +276,7 @@ npx whop variants get plan_ca358aTAVQPVM   # $299 Gutter Cleaning
 | 17 | Checkout Elements mounted | **PASS** (code) / **BLOCKED** (render) | needs plan ids |
 | 18 | Deposit setup-intent + consent | **PASS** (consent gate) / **BLOCKED** (live setup) | 400 without consent |
 | 19 | Final balance invoice | **PASS** (code) / **BLOCKED** (execution) | needs balance variant |
-| 20 | Database configuration | **BLOCKED** | `DATABASE_URL` absent |
+| 20 | Database configuration | **PASS** (code, real Postgres) / **BLOCKED** (your URL) | verified locally; your `DATABASE_URL` still required |
 | 21 | Desktop + tablet + mobile layout | **PARTIAL** | responsive breakpoints + `svh` verified statically; no browser render here |
 | 22 | Secure admin dashboard (`/admin`) | **PASS** | 200, auth-gated, noindex, no SSR data leak |
 | 22b | Production build + TypeScript | **PASS** | executed (20-file archive) |
