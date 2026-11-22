@@ -119,3 +119,49 @@ https://<your-domain>/api/webhooks/whop
 Subscribe at minimum to payment events. Copy the signing secret (`ws_...`) into
 `WHOP_WEBHOOK_SECRET`. Signature verification, replay dedupe and tampered-payload
 rejection are already implemented and tested locally.
+
+---
+
+## Verified against the built artifact (production mode)
+
+`scripts/serve-artifact.mjs` boots `dist/server/index.js` — a Cloudflare-Workers-style
+`{ fetch }` module, which `vite preview` cannot serve (it looks for
+`dist/server/server.js`). With that harness the *shipping bundle* can be exercised
+locally with `NODE_ENV=production` and a real PostgreSQL database:
+
+```bash
+# terminal 1 — serve the built Worker bundle
+npm run build
+npm run artifact:serve          # http://0.0.0.0:3310, serves dist/client too
+
+# or, fully automated, assert every API surface:
+DATABASE_URL="postgres://user:pass@127.0.0.1:5432/db" npm run verify:artifact
+```
+
+`verify:artifact` prints PASS / FAIL / BLOCKED per check and exits non-zero on any
+FAIL. It never charges, invoices, or prints a secret. `BLOCKED` means the check
+needs `api.whop.com` and this host has no route to it.
+
+Latest run (real credentials, PostgreSQL 18.7): **22 PASS · 0 FAIL · 1 BLOCKED**
+(the blocked one is `POST /api/checkout-sessions` with `plan=deposit`, which creates
+a setup-mode checkout configuration at Whop and therefore needs the network).
+
+## Missing-database behaviour (regression-tested)
+
+With `NODE_ENV=production` and `DATABASE_URL` empty, the artifact still boots and
+the marketing page returns 200, while every route that needs storage answers:
+
+```
+POST /api/leads                      503 STORAGE_NOT_CONFIGURED
+POST /api/track                      503 STORAGE_NOT_CONFIGURED
+POST /api/checkout-sessions          503 STORAGE_NOT_CONFIGURED
+GET  /api/admin/leads                503 STORAGE_NOT_CONFIGURED
+GET  /api/admin/stats                503 STORAGE_NOT_CONFIGURED
+```
+
+`checkout-sessions` used to answer `502 WHOP_ERROR` ("Whop could not start the
+checkout") in this case, because the store was resolved *inside* the Whop
+try/catch and a missing database looked like an API failure. It now resolves the
+store before contacting Whop and rethrows `StorageUnavailableError`, so the
+merchant is told to set `DATABASE_URL` — and no orphaned checkout configuration
+is created at Whop.

@@ -326,3 +326,68 @@ actually returns a build and `whop apps get app_S6fj7hfqepepH7` returns a
 
 **Do not claim a completed payment in the demo** unless a real Whop payment was
 made and confirmed.
+
+---
+
+## 13. Run against the real credentials (2026-11-22)
+
+Credentials were supplied and written to a gitignored `whop-vite/.env` (mode 600,
+never committed, never echoed). This section records exactly what those real
+values proved locally, and what stayed unreachable.
+
+### 13.1 Accepted and in use
+
+`GET /api/admin/stats` with the supplied `ADMIN_TOKEN` returns 200 and reports the
+config booleans, which confirms the route reads each supplied value:
+
+```json
+{"whopApiKey":true,"whopAccountId":true,"webhookSecret":true,"adminToken":true,
+ "plans":{"inspection":true,"deposit":true,"gutter":true,"balance":false}}
+```
+
+Wrong token and no token both return 401. `balance:false` is expected —
+`WHOP_PLAN_ID_BALANCE` was never supplied, and no id may be invented.
+
+### 13.2 Webhook verification uses the real signing secret
+
+Signing with the supplied `ws_…` secret, against the production-mode artifact:
+
+| Delivery | Result |
+| --- | --- |
+| valid signature | `200 {"ok":true,"received":true}` |
+| replay of the same `webhook-id` | `200 {"duplicate":true}` and exactly **1** row in `webhook_events` |
+| signature made with a different key | `400 INVALID_SIGNATURE` |
+| valid signature, tampered body | `400 INVALID_SIGNATURE` |
+
+### 13.3 Every locally reachable route, production mode + PostgreSQL 18.7
+
+`npm run verify:artifact` → **22 PASS · 0 FAIL · 1 BLOCKED**. Among them: page
+render, lead create (201) → dedupe (200, same id) → invalid input (422), all three
+tracking events (202) and an unknown one (400), admin 401 without a token and 200
+with it, `backend: "postgres"`, checkout init for inspection and gutter returning
+the real `plan_…` ids, deposit consent gates, the balance-variant 503, all four
+webhook cases, and direct SQL read-back proving one lead row, three event rows and
+one webhook row.
+
+### 13.4 Fixed this pass
+
+`POST /api/checkout-sessions` answered `502 WHOP_ERROR` when `DATABASE_URL` was
+missing, blaming Whop for a storage misconfiguration, because the store was
+resolved inside the Whop `try`. The store is now resolved first and the error
+rethrown, so all six storage routes answer `503 STORAGE_NOT_CONFIGURED` while the
+page still renders 200. Deposit also fails fast now, so no checkout configuration
+is created at Whop that could not be recorded.
+
+### 13.5 Still BLOCKED (not a code defect)
+
+- **No route to any Whop host from this sandbox.** `api.whop.com`, `whop.com`,
+  `whop.site` → HTTP 000; `github.com` and `registry.npmjs.org` → 200. With the
+  real key, `whop apps get app_S6fj7hfqepepH7` returns `{"code":"UNKNOWN",
+  "message":"fetch failed"}` and `whop apps deploy` returns `APP_NOT_FOUND … fetch
+  failed, retryable:true`. So no hosted URL exists yet, and the three plan ids and
+  their prices cannot be confirmed against the API from here.
+- **`DATABASE_URL` arrived empty.** Workers' filesystem is not durable, so
+  production needs a real Postgres URL or every write answers 503.
+- **`WHOP_PLAN_ID_BALANCE` absent** → the final-balance invoice stays 503.
+- Browser-level items (Elements mount, saved card, responsive rendering) need a
+  browser session, which this environment cannot provide.

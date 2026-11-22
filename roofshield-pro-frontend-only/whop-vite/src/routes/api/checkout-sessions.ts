@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { WHOP_ENVIRONMENT, missingFor, planId, whopAccountId } from "@/server/env";
 import { getWhop, pickString } from "@/server/whop";
 import { getStore } from "@/server/store";
-import { clientIp, fail, json, rateLimit, readJson } from "@/server/http";
+import { clientIp, fail, json, rateLimit, readJson, withStorage } from "@/server/http";
 import { isPlanKey } from "@/server/validate";
 
 /**
@@ -24,7 +24,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 export const Route = createFileRoute("/api/checkout-sessions")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: withStorage(async ({ request }: { request: Request }) => {
         if (!rateLimit(`checkout:${clientIp(request)}`, 30, 60 * 1000)) {
           return fail(429, "RATE_LIMITED", "Too many checkout attempts. Please try again shortly.");
         }
@@ -55,6 +55,11 @@ export const Route = createFileRoute("/api/checkout-sessions")({
         const resolvedPlanId = planId(planKey)!;
         const accountId = whopAccountId()!;
 
+        // Resolve the store before touching Whop. Without a durable database the
+        // order below could never be recorded, so fail fast with 503 instead of
+        // creating a checkout configuration (or setup intent) we cannot account for.
+        const store = getStore();
+
         try {
           if (planKey === "deposit") {
             const now = Date.now();
@@ -77,7 +82,7 @@ export const Route = createFileRoute("/api/checkout-sessions")({
               setupConfigCache.set(planKey, { id, at: now });
             }
 
-            await getStore()
+            await store
               .insertOrder({
                 kind: "deposit",
                 plan_id: resolvedPlanId,
@@ -103,7 +108,7 @@ export const Route = createFileRoute("/api/checkout-sessions")({
             });
           }
 
-          await getStore()
+          await store
             .insertOrder({
               kind: planKey,
               plan_id: resolvedPlanId,
@@ -127,6 +132,10 @@ export const Route = createFileRoute("/api/checkout-sessions")({
             environment: WHOP_ENVIRONMENT,
           });
         } catch (err) {
+          // A missing database is a deployment fault, not a Whop fault: rethrow it
+          // so withStorage() answers 503 STORAGE_NOT_CONFIGURED instead of blaming
+          // checkout. Otherwise the merchant gets a misleading "try again".
+          if ((err as { code?: string })?.code === "STORAGE_NOT_CONFIGURED") throw err;
           const message = (err as Error)?.message ?? "";
           console.error("[checkout-sessions] whop error:", (err as Error)?.name ?? "unknown");
           return fail(
@@ -137,7 +146,7 @@ export const Route = createFileRoute("/api/checkout-sessions")({
               : "Whop could not start the checkout. Please try again.",
           );
         }
-      },
+      }),
     },
   },
 });

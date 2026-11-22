@@ -10,3 +10,9 @@ dist/
 
 # local dev data store (file backend)
 .data/
+
+# local verification scratch (never committed)
+.data-real/
+.pgdata-real/
+.data/
+.pgdata/

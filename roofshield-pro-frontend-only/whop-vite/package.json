@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "deploy:verify": "node scripts/deploy-and-verify.mjs",
-    "verify:live": "node scripts/deploy-and-verify.mjs --skip-deploy"
+    "verify:live": "node scripts/deploy-and-verify.mjs --skip-deploy",
+    "artifact:serve": "node scripts/serve-artifact.mjs --env-file .env --static",
+    "verify:artifact": "node scripts/verify-artifact.mjs --env-file .env"
   },
   "overrides": {
     "rolldown": "1.2.1"
