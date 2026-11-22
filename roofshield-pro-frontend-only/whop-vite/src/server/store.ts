@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { databaseUrl } from "./env";
+import { isProductionRuntime, isWorkersRuntime } from "./runtime";
 
 export type LeadStatus = "new" | "contacted" | "scheduled" | "won" | "lost";
 
@@ -400,14 +401,37 @@ class FileStore implements Store {
 
 let store: Store | null = null;
 
+/** Thrown when no durable store is available in a production runtime. */
+export class StorageUnavailableError extends Error {
+  readonly code = "STORAGE_NOT_CONFIGURED";
+  readonly missing: string[];
+  constructor(missing: string[]) {
+    super(`No durable store is configured. Missing: ${missing.join(", ")}`);
+    this.missing = missing;
+  }
+}
+
 export function getStore(): Store {
   if (store) return store;
+
   const url = databaseUrl();
-  store = url
-    ? new PgStore(url)
-    : new FileStore(process.env.DATA_DIR ?? ".data");
+  if (url) {
+    store = new PgStore(url);
+    return store;
+  }
+
+  // No DATABASE_URL. In production the file store is not an option: Whop runs
+  // these apps on Cloudflare Workers, whose filesystem is not durable, and a
+  // silently-ephemeral lead store would lose every enquiry. Refuse loudly.
+  if (isProductionRuntime()) {
+    throw new StorageUnavailableError(["DATABASE_URL"]);
+  }
+
+  store = new FileStore(process.env.DATA_DIR ?? ".data");
   return store;
 }
+
+export { isWorkersRuntime };
 
 export function storeBackend(): "postgres" | "file" {
   return databaseUrl() ? "postgres" : "file";

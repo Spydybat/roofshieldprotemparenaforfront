@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { missingFor, planId, whopAccountId } from "@/server/env";
 import { getWhop, pickString } from "@/server/whop";
 import { getStore } from "@/server/store";
-import { clientIp, fail, json, rateLimit, readJson } from "@/server/http";
+import { clientIp, fail, json, rateLimit, readJson, withStorage } from "@/server/http";
 
 /**
  * POST /api/deposit/complete
@@ -22,7 +22,7 @@ import { clientIp, fail, json, rateLimit, readJson } from "@/server/http";
 export const Route = createFileRoute("/api/deposit/complete")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: withStorage(async ({ request }: { request: Request }) => {
         if (!rateLimit(`deposit:${clientIp(request)}`, 10, 10 * 60 * 1000)) {
           return fail(429, "RATE_LIMITED", "Too many attempts. Please contact us before retrying.");
         }
@@ -173,7 +173,7 @@ export const Route = createFileRoute("/api/deposit/complete")({
             502,
           );
         }
-      },
+      }),
     },
   },
 });

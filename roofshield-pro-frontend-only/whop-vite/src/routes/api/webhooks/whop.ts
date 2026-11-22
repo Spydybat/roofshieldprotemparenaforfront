@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { unwrapWebhook } from "@whop/sdk/helpers";
 import { webhookSecret } from "@/server/env";
 import { getStore } from "@/server/store";
-import { fail, json } from "@/server/http";
+import { fail, json, withStorage } from "@/server/http";
 import { pickString } from "@/server/whop";
 
 /**
@@ -19,7 +19,7 @@ import { pickString } from "@/server/whop";
 export const Route = createFileRoute("/api/webhooks/whop")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: withStorage(async ({ request }: { request: Request }) => {
         const secret = webhookSecret();
         if (!secret) {
           return json(
@@ -82,7 +82,7 @@ export const Route = createFileRoute("/api/webhooks/whop")({
         }
 
         return json({ ok: true, received: true, type: eventType }, 200);
-      },
+      }),
     },
   },
 });

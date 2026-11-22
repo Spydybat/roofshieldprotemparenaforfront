@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getStore, storeBackend } from "@/server/store";
 import { adminToken, whopApiKey, whopAccountId, webhookSecret, databaseUrl, planId } from "@/server/env";
-import { json, requireAdmin } from "@/server/http";
+import { json, requireAdmin, withStorage } from "@/server/http";
 import { isTrackEvent } from "@/server/validate";
 
 /**
@@ -14,7 +14,7 @@ import { isTrackEvent } from "@/server/validate";
 export const Route = createFileRoute("/api/admin/stats")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: withStorage(async ({ request }: { request: Request }) => {
         const denied = requireAdmin(request);
         if (denied) return denied;
 
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/admin/stats")({
           counts,
           recentEvents: events,
         });
-      },
+      }),
     },
   },
 });

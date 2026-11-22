@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getStore, type LeadStatus } from "@/server/store";
-import { fail, json, readJson, requireAdmin } from "@/server/http";
+import { fail, json, readJson, requireAdmin, withStorage } from "@/server/http";
 
 const STATUSES: LeadStatus[] = ["new", "contacted", "scheduled", "won", "lost"];
 
@@ -14,7 +14,7 @@ const STATUSES: LeadStatus[] = ["new", "contacted", "scheduled", "won", "lost"];
 export const Route = createFileRoute("/api/admin/leads")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: withStorage(async ({ request }: { request: Request }) => {
         const denied = requireAdmin(request);
         if (denied) return denied;
 
@@ -22,9 +22,9 @@ export const Route = createFileRoute("/api/admin/leads")({
         const limit = Math.min(Number(url.searchParams.get("limit") ?? 50) || 50, 200);
         const leads = await getStore().listLeads(limit);
         return json({ ok: true, count: leads.length, leads });
-      },
+      }),
 
-      PATCH: async ({ request }) => {
+      PATCH: withStorage(async ({ request }: { request: Request }) => {
         const denied = requireAdmin(request);
         if (denied) return denied;
 
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/admin/leads")({
         const updated = await getStore().setLeadStatus(id, status);
         if (!updated) return fail(404, "NOT_FOUND", "No lead with that id.");
         return json({ ok: true, id, status });
-      },
+      }),
     },
   },
 });

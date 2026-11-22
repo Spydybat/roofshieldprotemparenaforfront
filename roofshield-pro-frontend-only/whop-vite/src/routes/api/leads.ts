@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { clientIp, fail, json, rateLimit, readJson } from "@/server/http";
+import { clientIp, fail, json, rateLimit, readJson, withStorage } from "@/server/http";
 import { getStore } from "@/server/store";
 import { validateLead } from "@/server/validate";
 
@@ -20,7 +20,7 @@ import { validateLead } from "@/server/validate";
 export const Route = createFileRoute("/api/leads")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: withStorage(async ({ request }: { request: Request }) => {
         if (!rateLimit(`leads:${clientIp(request)}`, 8, 60 * 60 * 1000)) {
           return fail(429, "RATE_LIMITED", "Too many submissions. Please call us instead.");
         }
@@ -62,11 +62,14 @@ export const Route = createFileRoute("/api/leads")({
             duplicate ? 200 : 201,
           );
         } catch (err) {
+          // A missing database is a deployment problem, not a customer error:
+          // let withStorage() turn it into an explicit 503.
+          if ((err as { code?: string })?.code === "STORAGE_NOT_CONFIGURED") throw err;
           // Log the failure without any customer PII.
           console.error("[leads] store failure:", (err as Error)?.name ?? "unknown");
           return fail(500, "STORE_ERROR", "We could not save your request. Please call us instead.");
         }
-      },
+      }),
 
       // Lead listing lives behind admin auth; this keeps the collection closed.
       GET: async () => fail(405, "METHOD_NOT_ALLOWED", "Use /api/admin/leads with an admin token."),

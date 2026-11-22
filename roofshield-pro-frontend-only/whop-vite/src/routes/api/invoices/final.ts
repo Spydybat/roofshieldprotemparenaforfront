@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { missingFor, planId, whopAccountId } from "@/server/env";
 import { getWhop, pickString } from "@/server/whop";
 import { getStore } from "@/server/store";
-import { fail, json, readJson, requireAdmin } from "@/server/http";
+import { fail, json, readJson, requireAdmin, withStorage } from "@/server/http";
 
 /**
  * POST /api/invoices/final — admin only.
@@ -24,7 +24,7 @@ import { fail, json, readJson, requireAdmin } from "@/server/http";
 export const Route = createFileRoute("/api/invoices/final")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: withStorage(async ({ request }: { request: Request }) => {
         const denied = requireAdmin(request);
         if (denied) return denied;
 
@@ -131,7 +131,7 @@ export const Route = createFileRoute("/api/invoices/final")({
           console.error("[invoices/final] whop error:", (err as Error)?.name ?? "unknown");
           return fail(502, "WHOP_ERROR", "Whop could not create the invoice. No payment was taken.");
         }
-      },
+      }),
     },
   },
 });
