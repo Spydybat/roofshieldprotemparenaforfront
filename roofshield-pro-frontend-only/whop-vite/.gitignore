@@ -7,3 +7,6 @@ dist/
 .vercel/
 .wrangler/
 *.local
+
+# local dev data store (file backend)
+.data/

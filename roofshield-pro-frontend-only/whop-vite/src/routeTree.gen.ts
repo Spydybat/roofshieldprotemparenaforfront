@@ -10,33 +10,141 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiCheckoutSessionsRouteImport } from './routes/api/checkout-sessions'
+import { Route as ApiLeadsRouteImport } from './routes/api/leads'
+import { Route as ApiTrackRouteImport } from './routes/api/track'
+import { Route as ApiAdminLeadsRouteImport } from './routes/api/admin/leads'
+import { Route as ApiAdminStatsRouteImport } from './routes/api/admin/stats'
+import { Route as ApiDepositCompleteRouteImport } from './routes/api/deposit/complete'
+import { Route as ApiInvoicesFinalRouteImport } from './routes/api/invoices/final'
+import { Route as ApiWebhooksWhopRouteImport } from './routes/api/webhooks/whop'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCheckoutSessionsRoute = ApiCheckoutSessionsRouteImport.update({
+  id: '/api/checkout-sessions',
+  path: '/api/checkout-sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLeadsRoute = ApiLeadsRouteImport.update({
+  id: '/api/leads',
+  path: '/api/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTrackRoute = ApiTrackRouteImport.update({
+  id: '/api/track',
+  path: '/api/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminLeadsRoute = ApiAdminLeadsRouteImport.update({
+  id: '/api/admin/leads',
+  path: '/api/admin/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminStatsRoute = ApiAdminStatsRouteImport.update({
+  id: '/api/admin/stats',
+  path: '/api/admin/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDepositCompleteRoute = ApiDepositCompleteRouteImport.update({
+  id: '/api/deposit/complete',
+  path: '/api/deposit/complete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInvoicesFinalRoute = ApiInvoicesFinalRouteImport.update({
+  id: '/api/invoices/final',
+  path: '/api/invoices/final',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksWhopRoute = ApiWebhooksWhopRouteImport.update({
+  id: '/api/webhooks/whop',
+  path: '/api/webhooks/whop',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
+  '/api/leads': typeof ApiLeadsRoute
+  '/api/track': typeof ApiTrackRoute
+  '/api/admin/leads': typeof ApiAdminLeadsRoute
+  '/api/admin/stats': typeof ApiAdminStatsRoute
+  '/api/deposit/complete': typeof ApiDepositCompleteRoute
+  '/api/invoices/final': typeof ApiInvoicesFinalRoute
+  '/api/webhooks/whop': typeof ApiWebhooksWhopRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
+  '/api/leads': typeof ApiLeadsRoute
+  '/api/track': typeof ApiTrackRoute
+  '/api/admin/leads': typeof ApiAdminLeadsRoute
+  '/api/admin/stats': typeof ApiAdminStatsRoute
+  '/api/deposit/complete': typeof ApiDepositCompleteRoute
+  '/api/invoices/final': typeof ApiInvoicesFinalRoute
+  '/api/webhooks/whop': typeof ApiWebhooksWhopRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
+  '/api/leads': typeof ApiLeadsRoute
+  '/api/track': typeof ApiTrackRoute
+  '/api/admin/leads': typeof ApiAdminLeadsRoute
+  '/api/admin/stats': typeof ApiAdminStatsRoute
+  '/api/deposit/complete': typeof ApiDepositCompleteRoute
+  '/api/invoices/final': typeof ApiInvoicesFinalRoute
+  '/api/webhooks/whop': typeof ApiWebhooksWhopRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/checkout-sessions'
+    | '/api/leads'
+    | '/api/track'
+    | '/api/admin/leads'
+    | '/api/admin/stats'
+    | '/api/deposit/complete'
+    | '/api/invoices/final'
+    | '/api/webhooks/whop'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/checkout-sessions'
+    | '/api/leads'
+    | '/api/track'
+    | '/api/admin/leads'
+    | '/api/admin/stats'
+    | '/api/deposit/complete'
+    | '/api/invoices/final'
+    | '/api/webhooks/whop'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/checkout-sessions'
+    | '/api/leads'
+    | '/api/track'
+    | '/api/admin/leads'
+    | '/api/admin/stats'
+    | '/api/deposit/complete'
+    | '/api/invoices/final'
+    | '/api/webhooks/whop'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiCheckoutSessionsRoute: typeof ApiCheckoutSessionsRoute
+  ApiLeadsRoute: typeof ApiLeadsRoute
+  ApiTrackRoute: typeof ApiTrackRoute
+  ApiAdminLeadsRoute: typeof ApiAdminLeadsRoute
+  ApiAdminStatsRoute: typeof ApiAdminStatsRoute
+  ApiDepositCompleteRoute: typeof ApiDepositCompleteRoute
+  ApiInvoicesFinalRoute: typeof ApiInvoicesFinalRoute
+  ApiWebhooksWhopRoute: typeof ApiWebhooksWhopRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +156,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/checkout-sessions': {
+      id: '/api/checkout-sessions'
+      path: '/api/checkout-sessions'
+      fullPath: '/api/checkout-sessions'
+      preLoaderRoute: typeof ApiCheckoutSessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/leads': {
+      id: '/api/leads'
+      path: '/api/leads'
+      fullPath: '/api/leads'
+      preLoaderRoute: typeof ApiLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/track': {
+      id: '/api/track'
+      path: '/api/track'
+      fullPath: '/api/track'
+      preLoaderRoute: typeof ApiTrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/leads': {
+      id: '/api/admin/leads'
+      path: '/api/admin/leads'
+      fullPath: '/api/admin/leads'
+      preLoaderRoute: typeof ApiAdminLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/stats': {
+      id: '/api/admin/stats'
+      path: '/api/admin/stats'
+      fullPath: '/api/admin/stats'
+      preLoaderRoute: typeof ApiAdminStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/deposit/complete': {
+      id: '/api/deposit/complete'
+      path: '/api/deposit/complete'
+      fullPath: '/api/deposit/complete'
+      preLoaderRoute: typeof ApiDepositCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/invoices/final': {
+      id: '/api/invoices/final'
+      path: '/api/invoices/final'
+      fullPath: '/api/invoices/final'
+      preLoaderRoute: typeof ApiInvoicesFinalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/whop': {
+      id: '/api/webhooks/whop'
+      path: '/api/webhooks/whop'
+      fullPath: '/api/webhooks/whop'
+      preLoaderRoute: typeof ApiWebhooksWhopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiCheckoutSessionsRoute: ApiCheckoutSessionsRoute,
+  ApiLeadsRoute: ApiLeadsRoute,
+  ApiTrackRoute: ApiTrackRoute,
+  ApiAdminLeadsRoute: ApiAdminLeadsRoute,
+  ApiAdminStatsRoute: ApiAdminStatsRoute,
+  ApiDepositCompleteRoute: ApiDepositCompleteRoute,
+  ApiInvoicesFinalRoute: ApiInvoicesFinalRoute,
+  ApiWebhooksWhopRoute: ApiWebhooksWhopRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
