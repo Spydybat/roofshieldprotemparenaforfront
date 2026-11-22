@@ -132,6 +132,54 @@ docs cross-checked, that needs a networked review pass.
 `.env` never tracked (only `.env.example`); `.data/` gitignored.
 No secret value was printed in any command or report — only variable **names**.
 
+## 7b. Admin dashboard (`/admin`) — new this pass
+
+The API existed; the **dashboard did not**. Journey "open the secure admin
+dashboard" had no page to open. Added `src/routes/admin.tsx`:
+
+- Token prompt (`ADMIN_TOKEN`), held in **sessionStorage only** — never in a URL,
+  cookie, or the bundle; cleared when the tab closes, plus an explicit Lock button.
+- Counts (leads / events / orders / webhooks), **per-variable config readiness**
+  booleans (Whop key, account id, webhook secret, `DATABASE_URL`, all four plans),
+  storage backend with a warning when it is the non-durable dev store.
+- Estimate requests with inline pipeline status updates (`new → contacted →
+  scheduled → won → lost`) via `PATCH /api/admin/leads`.
+- Recent tracking events.
+- `noindex, nofollow` + `/admin` disallowed in `public/robots.txt`.
+
+**Verified:** `/admin` → 200; renders the prompt; SSR HTML contains **no lead
+data** (nothing to leak before auth); noindex present; `robots.txt` served;
+`/api/admin/leads` without a token still 401. Data path exercised with the exact
+requests the page makes (stats + leads + PATCH). *Not browser-automated* — no
+Chromium can be downloaded in this sandbox, so the rendering is verified by SSR
+output and code review, not by a clicking test.
+
+## 7c. Link + asset integrity
+
+- Every internal anchor used on the homepage — `#home #about #services
+  #projects #pricing #financing #estimate #contact` — has a matching section
+  `id`. **Missing targets: none.**
+- All 10 referenced images exist in `public/images/` (812 KB–1.1 MB).
+- Contact links resolve to `tel:5125550148` and `mailto:hello@roofshield.pro`.
+- No dead app routes linked from the storefront.
+
+## 7d. Customer journeys executed (live server)
+
+| # | Journey | Result |
+|---|---|---|
+| 1 | Open homepage | **PASS** (200) |
+| 2 | Navigate all sections | **PASS** (8/8 anchors resolve) |
+| 3 | Submit estimate request | **PASS** (201) |
+| 4 | Lead persisted + retrievable | **PASS** (3 leads via admin API) |
+| 5 | Pricing plans render | **PASS** ($149/$500/$299 in HTML) |
+| 6 | Initialize Whop checkout | **BLOCKED** (needs plan ids + API key) |
+| 7 | Payment success/failure | **BLOCKED** (no credentials; no simulation) |
+| 8 | Deposit consent + setup intent | **PASS** (consent gate 400) / **BLOCKED** (live setup) |
+| 9 | Final invoice flow | **PASS** (guard 503) / **BLOCKED** (live invoice) |
+| 10 | Webhook events | **PASS** (signed 200, replay dedupe, tamper 400) |
+| 11 | Open secure admin dashboard | **PASS** (`/admin` 200, auth-gated data) |
+| 12 | Mobile + desktop | **PARTIAL** — responsive markup/breakpoints verified statically; no browser rendering available |
+
 ## 8. Exact variables to configure
 
 Set as Whop app secrets so they reach the hosted runtime:
@@ -207,8 +255,9 @@ npx whop variants get plan_ca358aTAVQPVM   # $299 Gutter Cleaning
 | 18 | Deposit setup-intent + consent | **PASS** (consent gate) / **BLOCKED** (live setup) | 400 without consent |
 | 19 | Final balance invoice | **PASS** (code) / **BLOCKED** (execution) | needs balance variant |
 | 20 | Database configuration | **BLOCKED** | `DATABASE_URL` absent |
-| 21 | Desktop + mobile layout | **PASS** | SSR 200, responsive breakpoints |
-| 22 | Production build + TypeScript | **PASS** | executed |
+| 21 | Desktop + tablet + mobile layout | **PARTIAL** | responsive breakpoints + `svh` verified statically; no browser render here |
+| 22 | Secure admin dashboard (`/admin`) | **PASS** | 200, auth-gated, noindex, no SSR data leak |
+| 22b | Production build + TypeScript | **PASS** | executed (20-file archive) |
 | 23 | GitHub source | **PASS** | pushed |
 | 24 | **Whop production deployment** | **BLOCKED** | `NOT_AUTHENTICATED` |
 | 25 | **Live whop.app URL** | **BLOCKED** | no deploy ⇒ not invented |

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ApiCheckoutSessionsRouteImport } from './routes/api/checkout-sessions'
 import { Route as ApiLeadsRouteImport } from './routes/api/leads'
 import { Route as ApiTrackRouteImport } from './routes/api/track'
@@ -22,6 +23,11 @@ import { Route as ApiWebhooksWhopRouteImport } from './routes/api/webhooks/whop'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCheckoutSessionsRoute = ApiCheckoutSessionsRouteImport.update({
@@ -67,6 +73,7 @@ const ApiWebhooksWhopRoute = ApiWebhooksWhopRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
   '/api/leads': typeof ApiLeadsRoute
   '/api/track': typeof ApiTrackRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
   '/api/leads': typeof ApiLeadsRoute
   '/api/track': typeof ApiTrackRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/api/checkout-sessions': typeof ApiCheckoutSessionsRoute
   '/api/leads': typeof ApiLeadsRoute
   '/api/track': typeof ApiTrackRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/api/checkout-sessions'
     | '/api/leads'
     | '/api/track'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/api/checkout-sessions'
     | '/api/leads'
     | '/api/track'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/api/checkout-sessions'
     | '/api/leads'
     | '/api/track'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   ApiCheckoutSessionsRoute: typeof ApiCheckoutSessionsRoute
   ApiLeadsRoute: typeof ApiLeadsRoute
   ApiTrackRoute: typeof ApiTrackRoute
@@ -154,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/checkout-sessions': {
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   ApiCheckoutSessionsRoute: ApiCheckoutSessionsRoute,
   ApiLeadsRoute: ApiLeadsRoute,
   ApiTrackRoute: ApiTrackRoute,
