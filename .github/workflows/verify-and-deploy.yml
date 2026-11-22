@@ -1,0 +1,147 @@
+name: Verify and deploy (manual)
+
+# Runs only when a human clicks "Run workflow" — never on push.
+#
+# Why this exists: this repository's development sandbox has no route to any
+# Whop host (TLS is reset at the egress layer for api.whop.com), so `whop apps
+# deploy` cannot run there. GitHub's runners can reach Whop, so this workflow is
+# the deploy path. It first runs the production-mode verification suite against
+# a real PostgreSQL service container, so a broken build cannot reach Whop, and
+# only then deploys.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   WHOP_API_KEY            apik_…        (required to deploy)
+#   WHOP_ACCOUNT_ID         biz_…
+#   WHOP_PRODUCT_ID         prod_…
+#   WHOP_PLAN_ID_INSPECTION plan_…
+#   WHOP_PLAN_ID_DEPOSIT    plan_…
+#   WHOP_PLAN_ID_GUTTER     plan_…
+#   WHOP_WEBHOOK_SECRET     ws_…
+#   ADMIN_TOKEN             32+ random chars
+#   DATABASE_URL            postgres://…  (required: Workers has no durable disk)
+# Optional:
+#   WHOP_PLAN_ID_BALANCE    plan_…         (enables the final-balance invoice)
+#
+# Nothing here charges a card or issues an invoice.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to Whop after verification passes"
+        type: boolean
+        default: true
+      sync_secrets:
+        description: "Push the secret values above to Whop before deploying"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whop-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Production-mode verification
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: roofshield_verify
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: roofshield-pro-frontend-only/whop-vite/package-lock.json
+
+      - name: Install
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        run: npx tsc --noEmit
+
+      - name: Build the Worker bundle
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        run: npm run build
+
+      - name: Verify the built artifact against PostgreSQL
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/roofshield_verify
+          # Real values when the secrets exist; placeholders otherwise so the
+          # storage/API checks still run (webhook checks report BLOCKED).
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN || 'verify-only-placeholder-token-0001' }}
+          WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET || 'ws_verify_only_placeholder' }}
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_ACCOUNT_ID: ${{ secrets.WHOP_ACCOUNT_ID }}
+          WHOP_PRODUCT_ID: ${{ secrets.WHOP_PRODUCT_ID }}
+          WHOP_PLAN_ID_INSPECTION: ${{ secrets.WHOP_PLAN_ID_INSPECTION }}
+          WHOP_PLAN_ID_DEPOSIT: ${{ secrets.WHOP_PLAN_ID_DEPOSIT }}
+          WHOP_PLAN_ID_GUTTER: ${{ secrets.WHOP_PLAN_ID_GUTTER }}
+        # No --env-file: the environment above is authoritative.
+        run: node scripts/verify-artifact.mjs --port 3400
+
+  deploy:
+    name: Deploy to Whop
+    needs: verify
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: roofshield-pro-frontend-only/whop-vite/package-lock.json
+
+      - name: Install
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        run: npm ci
+
+      - name: Build
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        run: npm run build
+
+      - name: Deploy and verify live
+        working-directory: roofshield-pro-frontend-only/whop-vite
+        env:
+          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
+          WHOP_ACCOUNT_ID: ${{ secrets.WHOP_ACCOUNT_ID }}
+          WHOP_PRODUCT_ID: ${{ secrets.WHOP_PRODUCT_ID }}
+          WHOP_PLAN_ID_INSPECTION: ${{ secrets.WHOP_PLAN_ID_INSPECTION }}
+          WHOP_PLAN_ID_DEPOSIT: ${{ secrets.WHOP_PLAN_ID_DEPOSIT }}
+          WHOP_PLAN_ID_GUTTER: ${{ secrets.WHOP_PLAN_ID_GUTTER }}
+          WHOP_PLAN_ID_BALANCE: ${{ secrets.WHOP_PLAN_ID_BALANCE }}
+          WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          WHOP_APP_ID: app_S6fj7hfqepepH7
+        run: |
+          if [ "${{ inputs.sync_secrets }}" = "true" ]; then
+            node scripts/deploy-and-verify.mjs --sync-secrets
+          else
+            node scripts/deploy-and-verify.mjs
+          fi
+
+      - name: Note the hosted URL
+        if: always()
+        run: |
+          echo "If the deploy step reported a hosted_url, that is the live app."
+          echo "No payment was made and no invoice was issued by this run."

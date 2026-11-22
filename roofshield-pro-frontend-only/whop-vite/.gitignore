@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.vinxi/
+.vercel/
+.wrangler/
+*.local
+
+# local dev data store (file backend)
+.data/
+
+# local verification scratch (never committed)
+.data-real/
+.pgdata-real/
+.data/
+.pgdata/

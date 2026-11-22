@@ -1,0 +1,8 @@
+# RoofShield Pro — robots.txt
+# The operations dashboard is not for indexing.
+
+User-agent: *
+Disallow: /admin
+Disallow: /api/
+
+Allow: /
