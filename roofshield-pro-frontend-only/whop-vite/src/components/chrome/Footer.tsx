@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { SVGProps } from "react";
 import { ShieldCheck, Phone, Mail, MapPin } from "lucide-react";
 import { brand, footer, nav, serviceArea, social } from "@/config/site";
@@ -121,6 +122,8 @@ export default function Footer() {
           <div className="flex items-center gap-6">
             <a href="#home" className="hover:text-white/70">Privacy</a>
             <a href="#home" className="hover:text-white/70">Terms</a>
+            <Link to="/status" className="hover:text-white/70">Integration Status</Link>
+            <Link to="/checkout/test" className="hover:text-white/70">Checkout Test</Link>
           </div>
         </div>
       </div>

@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import Reveal from "@/components/Reveal";
 
 /**
- * Three one-time Whop plans. Each card opens Whop Elements for the plan id the
- * server resolved from the environment — the plan id is never hardcoded here and
- * never shown to the customer.
+ * Readiness is surfaced per card by the env-var row ("Set WHOP_PLAN_ID_* …" or,
+ * after the merchant configures the plan, the Whop session itself confirms the
+ * live connection). No temporary "awaiting setup" labels are rendered.
  */
 export default function Pricing() {
   const { openCheckout } = useCheckout();
@@ -87,6 +87,16 @@ export default function Pricing() {
                     ))}
                   </ul>
 
+                  {/* Whop plan wiring: the env var connecting this card to its Whop plan */}
+                  <div className="mt-7 flex items-center justify-center gap-2 text-center">
+                    <p className="text-[11px] font-medium tracking-wide text-white/50">
+                      Whop plan:{" "}
+                      <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+                        {plan.envVar}
+                      </code>
+                    </p>
+                  </div>
+
                   <button
                     onClick={() => openCheckout(plan.key)}
                     className={cn(
@@ -115,6 +125,11 @@ export default function Pricing() {
           <p className="mx-auto mt-12 flex max-w-xl items-center justify-center gap-2 text-center text-xs text-white/40">
             <ShieldCheck className="h-4 w-4 shrink-0 text-copper" />
             All payments are processed by Whop. Card details never touch this website.
+          </p>
+          <p className="mt-5 text-center">
+            <a href="/checkout/test" className="text-xs font-medium text-copper-2 underline-offset-4 transition-colors hover:underline">
+              Open the sandbox checkout self-test →
+            </a>
           </p>
         </Reveal>
       </div>
